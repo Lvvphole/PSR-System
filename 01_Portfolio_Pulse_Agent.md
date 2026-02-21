@@ -97,3 +97,84 @@ When generating `challenger_talk_track` entries, apply these Challenger principl
 - **ACTIVE-CHECKIN**: "Schedule a jobsite visit to review upcoming project pipeline and introduce new Pro pricing on [category]."
 - **DORMANT-REENGAGE**: "Call to re-establish contact. Reference their last purchase of [product] and share a relevant market insight."
 - **QUOTE-FOLLOWUP**: "Follow up on open quote #[ID] for $[value]. Offer to walk through a cost comparison vs. alternatives."
+
+## Secondary Fallback Prompt
+
+Insufficient data detected for full queue generation. Produce a partial queue using only accounts where last_order_date OR last_touchpoint_date is available. Flag all entries with INCOMPLETE_DATA status. List missing fields required to complete full analysis. Recommend PSR prioritize data completion for flagged accounts before next cycle.
+
+## Input Schema
+
+| Field | Type |
+|---|---|
+| `account_name` | string |
+| `contractor_type` | enum [roofer, remodeler, builder, general_contractor, other] |
+| `tier` | enum [1, 2, 3] |
+| `last_order_date` | date |
+| `last_order_size` | currency |
+| `last_touchpoint_date` | date |
+| `last_touchpoint_type` | enum [call, text, email, in-person] |
+| `open_quote_id` | string or null |
+| `open_quote_age_days` | integer or null |
+| `open_quote_value` | currency or null |
+| `pipeline_notes` | string or null |
+
+## Output Schema
+
+| Field | Type |
+|---|---|
+| `rank` | integer |
+| `account_name` | string |
+| `contractor_type` | string |
+| `tier` | integer |
+| `segment` | enum [ACTIVE-CHECKIN, DORMANT-REENGAGE, QUOTE-FOLLOWUP] |
+| `days_since_last_contact` | integer |
+| `priority_score` | integer (1-100) |
+| `flag_reason` | string (one sentence) |
+| `recommended_touchpoint_type` | string |
+| `downstream_agent` | ABA |
+| `confidence_score` | float (0.0-1.0) |
+| `escalation_flag` | Boolean |
+
+## Confidence Scoring Rule
+
+| Score | Condition |
+|---|---|
+| **1.0** | All input fields present and current within 30 days. |
+| **0.8** | Missing pipeline_notes only. |
+| **0.6** | Missing last_touchpoint_date or last_order_date. |
+| **0.4** | Missing both touchpoint and order data. |
+
+- Below 0.6 → append **INCOMPLETE_DATA** flag to entry.
+- Below 0.4 → escalate to human, do not include in queue.
+
+## Escalation Rule to Human
+
+Escalate if:
+
+- confidence_score below 0.4 for any Tier 1 account.
+- Account has not appeared in any data input for 60+ days.
+- Open quote value exceeds $10,000 and age exceeds 72 hours.
+- Any account shows conflicting data (order after dormancy flag without note explanation).
+
+Escalation output: flag account with **NEEDS_PSR_REVIEW** tag and one sentence describing the conflict or gap.
+
+## Logging Requirement
+
+Log every queue generation event:
+
+- Timestamp of generation
+- Total accounts analyzed
+- Queue entries produced per segment
+- Accounts excluded and reason
+- Confidence scores below 0.6
+- Escalation flags raised
+
+Retain log for 90 days minimum.
+
+## Performance Metric
+
+**Primary**: Queue contact rate — percentage of queued accounts contacted within the same week. Target: **80%**.
+
+**Secondary**: Queue relevance rate — percentage of contacts that generated a response or conversation. Target: **35%**.
+
+Reviewed: Weekly by SPA.
