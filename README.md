@@ -72,6 +72,20 @@ Running log of Challenger insights that opened
 meaningful conversations. One entry per insight:
 insight used, contractor type, outcome.
 Updated continuously by PSR after successful calls.
+### Accounts/
+One file per contractor account. Each file contains a YAML front matter
+block with 17 structured fields followed by seven prose sections:
+Project Intelligence, Category Intelligence, Relationship Notes,
+Open Quotes, Referral Network, Risk Signals, Touchpoint History.
+Front matter is machine-parseable for cache regeneration.
+Body sections are read by agents directly.
+TEMPLATE_account_record.md — blank template for new account onboarding
+TEMPLATE_order_history.md — blank order history log for new accounts
+### Outreach_Log/
+One file per contractor account tracking every outreach attempt.
+Front matter holds current FTA status and attempt count.
+Body table holds the chronological send log.
+TEMPLATE_outreach_log.md — blank template for new account onboarding
 ### Weekly_Logs/
 Performance data logs for each weekly cycle. Used as
 input for System Performance Agent monthly review.
